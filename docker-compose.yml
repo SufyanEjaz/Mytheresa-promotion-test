@@ -5,6 +5,22 @@ services:
     working_dir: /var/www
     volumes:
       - ./:/var/www
+    command: >
+      sh -lc '
+        set -e;
+        chown -R www-data:www-data /var/www/storage;
+        chmod -R 775 /var/www/storage;
+        if [ ! -f vendor/autoload.php ]; then
+          composer install --no-interaction --prefer-dist --no-ansi --no-progress;
+        fi;
+        if [ ! -f .env ]; then
+          cp .env.example .env || true;
+        fi;
+        php artisan key:generate --force || true;
+        php artisan optimize:clear || true;
+        php artisan products:generate 20000;
+        exec php-fpm
+      '
     networks: [app-net]
 
   nginx:
