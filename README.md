@@ -1,61 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Products API — Discounts & Filters (Laravel 12)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A small, fast, and testable REST API that lists products with **configurable discounts** and **pre-discount filters**, designed to stay performant even with **20k+** items.
 
-## About Laravel
+- **Endpoint:** `GET /api/products`
+- **Filters:** `category`, `priceLessThan` (in **cents**, applied **before** discounts)
+- **Max items per response:** `5`
+- **Currency:** `EUR`
+- **Data source:** JSON file (path configurable via `.env`)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Prerequisites
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Docker + Docker Compose
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## How to run (one command)
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```bash
+docker compose up -d --build
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+First boot note
 
-## Laravel Sponsors
+On a fresh clone, the PHP container will run composer install inside the container.
+This can take a few minutes the first time.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Watch progress:
 
-### Premium Partners
+```bash
+docker compose logs -f php
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+When you see php-fpm running without errors, the app is ready.
+Open: http://localhost:8000
 
-## Contributing
+Endpoint
+GET /api/products
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Query parameters
 
-## Code of Conduct
+category — (optional) exact category match (e.g., boots)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+priceLessThan — (optional, integer cents) include only products whose original price ≤ this value
 
-## Security Vulnerabilities
+Rules
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+boots → 30% discount
 
-## License
+sku = 000003 → 15% discount
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+If multiple discounts apply, the largest wins
+
+Response returns at most 5 items (order doesn’t matter)
+
+Examples
+
+# all products (max 5)
+curl "http://localhost:8000/api/products"
+
+# filter by category
+curl "http://localhost:8000/api/products?category=boots"
+
+# filter by price (cents, pre-discount)
+curl "http://localhost:8000/api/products?priceLessThan=80000"
+
+# combined
+curl "http://localhost:8000/api/products?category=boots&priceLessThan=80000"
+
+Tests (PHPUnit)
+
+All tests run without using the filesystem or network (in-memory fakes).
+# full suite
+docker compose exec php php artisan test
+
+# only unit or feature
+docker compose exec php php artisan test --testsuite=Unit
+docker compose exec php php artisan test --testsuite=Feature
+
+# filter by class or method
+docker compose exec php php artisan test --filter=DiscountEngineTest
+docker compose exec php php artisan test --filter="GetProductsEndpointTest::test_returns_max_five"
+
+Generate large datasets (optional)
+
+Use the built-in Artisan command to generate any number of products into a JSON file:
+# generate 20k products into storage/app/products.json
+docker compose exec php php artisan products:generate 20000 --path=storage/app/products.json
